@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Schema(description = "User's unique identifier", example = "1")
+    @Schema(description = "User's unique identifier", example = "")
     private Integer id; // 主键，自增
 
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
@@ -23,8 +23,8 @@ public class User {
     private LocalDateTime updatedAt; // 记录最后更新时间
 
     @Enumerated(EnumType.ORDINAL) // 使用数字来表示枚举类型
-    @Column(name = "using_type", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1") // 1: active
-    @Schema(description = "User's status", example = "1") // 1: active, 2: inactive, 3: deleted
+    @Column(name = "using_type", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0") // 0: active
+    @Schema(description = "User's status", example = "0") // 0: active, 1: inactive, 2: deleted
     private UsingType usingType; // 用户状态
 
     @Column(name = "username", length = 50, nullable = false)
@@ -72,8 +72,8 @@ public class User {
     private LocalDateTime lastLoginAt; // 最后登录时间
 
     @Enumerated(EnumType.ORDINAL) // 使用数字来表示角色
-    @Column(name = "role", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1") // 1: user
-    @Schema(description = "Role of the user", example = "1") // 1: user, 2: admin
+    @Column(name = "role", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0") // 0: user
+    @Schema(description = "Role of the user", example = "0") // 0: user, 1: admin
     private Role role; // 用户角色
 
     @Column(name = "password_reset_token", length = 255)
@@ -85,8 +85,8 @@ public class User {
     private LocalDateTime passwordResetTokenExpiry; // 密码重置令牌到期时间
 
     @Enumerated(EnumType.ORDINAL) // 使用数字来表示身份提供商
-    @Column(name = "auth_provider", columnDefinition = "TINYINT(1)") // 1: google
-    @Schema(description = "User's authentication provider", example = "1") // 1: google, 2: apple, 3: facebook, 4: email
+    @Column(name = "auth_provider", columnDefinition = "TINYINT(0)") // 0: google
+    @Schema(description = "User's authentication provider", example = "0") // 0: google, 1: apple, 2: facebook, 3: email
     private AuthProvider authProvider; // 用户身份认证提供商
 
     @Column(name = "auth_provider_id", length = 255)
@@ -99,8 +99,8 @@ public class User {
 
     // 内部静态枚举类定义
     public static enum Role {
-        USER(1),    // 普通用户
-        ADMIN(2);   // 管理员
+        USER(0),    // 普通用户
+        ADMIN(1);   // 管理员
 
         private final int value;
 
@@ -123,10 +123,10 @@ public class User {
     }
 
     public enum AuthProvider {
-        GOOGLE(1),    // Google身份认证
-        APPLE(2),     // Apple身份认证
-        FACEBOOK(3),  // Facebook身份认证
-        EMAIL(4);     // 电子邮件身份认证
+        GOOGLE(0),    // Google身份认证
+        APPLE(1),     // Apple身份认证
+        FACEBOOK(2),  // Facebook身份认证
+        EMAIL(3);     // 电子邮件身份认证
 
         private final int value;
 
@@ -164,7 +164,8 @@ public class User {
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+        // Set current time if the provided value is null
+        this.createdAt = (createdAt != null) ? createdAt : LocalDateTime.now();
     }
 
     public LocalDateTime getUpdatedAt() {
@@ -172,7 +173,8 @@ public class User {
     }
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+        // Set current time if the provided value is null
+        this.updatedAt = (updatedAt != null) ? updatedAt : LocalDateTime.now();
     }
 
     public UsingType getUsingType() {

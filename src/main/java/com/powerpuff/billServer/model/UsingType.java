@@ -1,9 +1,9 @@
 package com.powerpuff.billServer.model;
 
 public enum UsingType {
-    ACTIVE(1),     // 活跃状态
-    INACTIVE(2),   // 非活跃状态
-    DELETED(3);    // 已删除状态
+    ACTIVE(0),     // 活跃状态
+    INACTIVE(1),   // 非活跃状态
+    DELETED(2);    // 已删除状态
 
     private final int value;
 
