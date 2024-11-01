@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.3.4</version> <!-- 确保这是最新的 Spring Boot 版本 -->
+		<version>3.3.4</version>
 		<relativePath/>
 	</parent>
 	<groupId>com.powerpuff</groupId>
@@ -41,6 +41,11 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+			<version>5.2.1</version>
 		</dependency>
 
 
