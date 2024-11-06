@@ -1,10 +1,14 @@
 package com.powerpuff.billServer.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.powerpuff.billServer.model.Message;
 import com.powerpuff.billServer.model.Transaction;
+import com.powerpuff.billServer.model.UsingType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 
+import java.util.HashMap;
+import java.util.Map;
+import org.json.JSONObject;
+
 @Service
 public class OpenAIService {
 
@@ -36,26 +44,81 @@ public class OpenAIService {
     @Value("${openai.api.url}")
     private String apiUrl;
 
-    private final RestTemplate restTemplate= new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
-    // Retry configuration
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_DELAY_MS = 1000; // 1 second
+    @Autowired
+    public OpenAIService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
 
-    public Transaction generateTransactionFromDescription(String description) {
+
+    public JSONObject callOpenAI(String userMessage) throws Exception {
         try {
-            String prompt = buildPrompt(description);
-            String aiResponse = callOpenAI(prompt);
-            return parseAIResponse(aiResponse);
+        // 创建请求体
+            Map<String, Object> requestBody = new HashMap<>();
+//            requestBody.put("temperature", 0.5);
+//            requestBody.put("max_tokens", 150);
+//            requestBody.put("prompt", buildPrompt(userMessage));
+            requestBody.put("model", model);
+            requestBody.put("messages", new Message[]{
+                    new Message("system", "You are an AI assistant specialized in recording transactions for a personal finance app."),
+                    new Message("user", buildPrompt(userMessage))
+            });
+
+
+            // 将请求体转换为 JSON 字符串
+            String jsonBody = objectMapper.writeValueAsString(requestBody);
+
+            // 设置请求头
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + apiKey);
+
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+
+            // 发送 POST 请求
+            ResponseEntity<String> response = restTemplate.exchange(apiUrl, HttpMethod.POST, entity, String.class);
+
+            // 检查响应状态
+            if (response.getStatusCode() != HttpStatus.OK) {
+                throw new RuntimeException("Failed to call OpenAI API: " + response.getStatusCode() + " " + response.getBody());
+            }
+
+            // 解析返回结果
+            JsonNode jsonResponse = objectMapper.readTree(response.getBody());
+//            return jsonResponse.get("choices")
+//                    .get(0)
+//                    .get("message")
+//                    .get("content")
+//                    .asText()
+//                    .trim();
+            return new JSONObject(jsonResponse.get("choices")
+                    .get(0)
+                    .get("message")
+                    .get("content").asText()
+                    .trim());
+        } catch (JsonProcessingException e) {
+            log.error("Error processing JSON: ", e);
+            throw new RuntimeException("Error processing JSON request", e);
+        }
+    }
+
+//    public Transaction generateTransactionFromDescription(String useMessage) {
+public JSONObject addWithAI(String userMessage) {
+
+        try {
+//            String AIResponse = callOpenAI(userMessage);
+            return callOpenAI(userMessage);
+//            return parseAIResponse(aiResponse);
         } catch (Exception e) {
             throw new RuntimeException("Error generating transaction from AI: " + e.getMessage(), e);
         }
     }
 
-    private String buildPrompt(String userContent) {
-        return  "You are an AI assistant specialized in categorizing expenses for a personal finance app. "
-                + "Your task is to analyze the given expense description and categorize it according to predefined categories. "
+    private String buildPrompt(String userMessage) {
+        return  "Your task is to analyze the given expense description and categorize it according to predefined categories. "
                 + "You should also extract the amount, the currency, the date of the expense if available, and the location if provided.\n\n"
                 + "The content output by the user is marked as <content></content>. Please analyze the input content and complete the task based on the following requirements:\n"
                 + "1. Identify the most likely intention of the customer and record it as transaction_type;\n"
@@ -87,7 +150,7 @@ public class OpenAIService {
                 + "  \"time\": \"18:30\",\n"
                 + "  \"amount\": 72.50,\n"
                 + "  \"currency\": \"USD\",\n"
-                + "  \"category\": \"FOOD_AND_DINING\",\n"
+                + "  \"category\": \"SHOPPING\",\n"
                 + "  \"description\": \"Bought groceries at Walmart\",\n"
                 + "  \"participants\": null,\n"
                 + "  \"location\": \"Walmart\",\n"
@@ -115,41 +178,11 @@ public class OpenAIService {
                 + "  \"location\": null,\n"
                 + "  \"payment_method\": null\n"
                 + "}\"\n"
-                + "<content>" + userContent + "</content>\n"
+                + "<content>" + userMessage + "</content>\n"
                 + "<current_time>" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "</current_time>";
     }
 
-    public String callOpenAI(String prompt) {
-        int retryCount = 0;
-        Exception lastException = null;
 
-        while (retryCount < MAX_RETRIES) {
-            try {
-                return executeOpenAICall(prompt);
-            } catch (HttpServerErrorException e) {
-                lastException = e;
-                log.warn("OpenAI API server error (attempt {}/{}): {}", 
-                    retryCount + 1, MAX_RETRIES, e.getMessage());
-                
-                if (retryCount < MAX_RETRIES - 1) {
-                    try {
-                        Thread.sleep(RETRY_DELAY_MS * (retryCount + 1));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Retry was interrupted", ie);
-                    }
-                }
-            } catch (Exception e) {
-                // For non-server errors, throw immediately
-                throw new RuntimeException("Error calling OpenAI API: " + e.getMessage(), e);
-            }
-            retryCount++;
-        }
-        
-        // If all retries failed
-        throw new RuntimeException("Failed to call OpenAI API after " + MAX_RETRIES + " attempts: " 
-            + (lastException != null ? lastException.getMessage() : "Unknown error"));
-    }
 
     private String executeOpenAICall(String prompt) throws JsonProcessingException {
         HttpHeaders headers = new HttpHeaders();
@@ -275,4 +308,36 @@ public class OpenAIService {
             throw new IllegalArgumentException("Failed to parse AI response as JSON: " + aiResponse, e);
         }
     }
+
+
+    public Transaction parseAndSaveTransaction(JSONObject openAIResponse) {
+        Transaction transaction = new Transaction();
+
+        // Parsing JSON data
+        transaction.setTransactionType(openAIResponse.getString("transaction_type"));
+        transaction.setTransactionAt(LocalDateTime.parse(openAIResponse.getString("date") + "T" + openAIResponse.getString("time")));
+        transaction.setTotalAmount(BigDecimal.valueOf(openAIResponse.getDouble("amount")));
+        transaction.setCurrency(openAIResponse.getString("currency"));
+        transaction.setCategory(openAIResponse.getString("category"));
+        transaction.setDescription(openAIResponse.getString("description"));
+        transaction.setCounterpartyName(openAIResponse.optString("location"));
+        transaction.setPaymentMethod(openAIResponse.optString("payment_method"));
+
+        // Set other fields as needed (createdAt, updatedAt, etc.)
+        transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setUpdatedAt(LocalDateTime.now());
+
+        // Set the 'isRecurring' and 'isReimbursable' fields to default values if not provided
+        transaction.setIsRecurring(false); // Default value is false
+        transaction.setIsReimbursable(false); // Default value is false
+
+        //TODO usingType,userId
+        transaction.setUsingType(UsingType.ACTIVE);
+        transaction.setUserId(1);
+
+
+        return transaction;
+    }
+
+
 }

@@ -264,4 +264,14 @@ public class Transaction {
     public void setTags(String tags) {
         this.tags = tags;
     }
+
+    public void setIsRecurring(boolean isRecurring) {
+        this.isRecurring = isRecurring;
+    }
+
+    public void setIsReimbursable(boolean isReimbursable) {
+        this.isReimbursable = isReimbursable;
+    }
+
+
 }
