@@ -58,9 +58,18 @@ public class TransactionController {
     }
 
     @GetMapping("/getAll")
-    public List<Transaction> getAllTransaction(
-            @RequestParam(value = "sortOrder", required = false) String sortOrder){
-        return transactionService.getAllTransaction(sortOrder);
+//    public List<Transaction> getAllTransaction(
+//            @RequestParam(value = "sortOrder", required = false) String sortOrder){
+//        return transactionService.getAllTransaction(sortOrder);
+//    }
+
+    public ResponseEntity<List<Transaction>> getAllTransactions(
+            @Parameter(description = "Sort order (asc or desc)")
+            @RequestParam(required = false) String sortOrder,
+            @Parameter(description = "Transaction category filter")
+            @RequestParam(required = false) String category) {
+        List<Transaction> transactions = transactionService.getAllTransaction(sortOrder, category);
+        return new ResponseEntity<>(transactions, HttpStatus.OK);
     }
 
     @GetMapping("/delete/{id}")

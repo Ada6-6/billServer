@@ -36,7 +36,7 @@ public class Transaction {
     private LocalDateTime transactionAt; // 交易时间
 
     @Column(name = "transaction_type", length = 50, nullable = false)
-    @Schema(description = "The type of transaction", example = "purchase")
+    @Schema(description = "The type of transaction", example = "income")//income / outcome
     private String transactionType; // 交易类型
 
     @Column(name = "counterparty_name", length = 255)

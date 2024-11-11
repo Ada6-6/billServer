@@ -20,12 +20,20 @@ public class TransactionServiceImpl implements TransactionService{
     }
 
     @Override
-    public List<Transaction> getAllTransaction(String sortOrder){
-        //desc or asc
-        if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
-            return transactionRepository.findByUsingTypeNotOrderByCreatedAtDesc(UsingType.DELETED);
+    public List<Transaction> getAllTransaction(String sortOrder, String category) {
+        if (category == null || category.isEmpty()) {
+            if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
+                return transactionRepository.findByUsingTypeNotOrderByCreatedAtDesc(UsingType.DELETED);
+            } else {
+                return transactionRepository.findByUsingTypeNotOrderByCreatedAtAsc(UsingType.DELETED);
+            }
         } else {
-            return transactionRepository.findByUsingTypeNotOrderByCreatedAtAsc(UsingType.DELETED);
+            // Category-specific filtering
+            if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
+                return transactionRepository.findByUsingTypeNotAndCategoryOrderByCreatedAtDesc(UsingType.DELETED, category);
+            } else {
+                return transactionRepository.findByUsingTypeNotAndCategoryOrderByCreatedAtAsc(UsingType.DELETED, category);
+            }
         }
     }
 
