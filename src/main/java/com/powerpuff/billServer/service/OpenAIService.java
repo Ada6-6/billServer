@@ -15,20 +15,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import java.time.Duration;
+
+import java.io.File;
+import java.io.IOException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 
 import java.util.HashMap;
 import java.util.Map;
 import org.json.JSONObject;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class OpenAIService {
@@ -105,20 +104,8 @@ public class OpenAIService {
         }
     }
 
-//    public Transaction generateTransactionFromDescription(String useMessage) {
-public JSONObject addWithAI(String userMessage) {
-
-        try {
-//            String AIResponse = callOpenAI(userMessage);
-            return callOpenAI(userMessage);
-//            return parseAIResponse(aiResponse);
-        } catch (Exception e) {
-            throw new RuntimeException("Error generating transaction from AI: " + e.getMessage(), e);
-        }
-    }
-
     private String buildPrompt(String userMessage) {
-        return  "Your task is to analyze the given expense description and categorize it according to predefined categories. "
+        return  "Your task is to analyze the given expense description or image, and categorize it according to predefined categories. "
                 + "You should also extract the amount, the currency, the date of the expense if available, and the location if provided.\n\n"
                 + "The content output by the user is marked as <content></content>. Please analyze the input content and complete the task based on the following requirements:\n"
                 + "1. Identify the most likely intention of the customer and record it as transaction_type;\n"
@@ -183,133 +170,118 @@ public JSONObject addWithAI(String userMessage) {
     }
 
 
+    // Process the uploaded image
+    public JSONObject processImage(MultipartFile image) throws Exception {
+        // Convert the file to base64 or upload it to a server if needed
+        String imgUrl = uploadImageToStorage(image);  // This is only needed if you upload base64 encoded images.
 
-    private String executeOpenAICall(String prompt) throws JsonProcessingException {
+        // Call OpenAI API or another image recognition service
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", "gpt-4o");  // Use gpt-4o model (ensure you are using the correct model that supports image_url)
+        requestBody.put("messages", Arrays.asList(
+                new HashMap<String, Object>() {{
+                    put("role", "user");
+                    put("content", Arrays.asList(
+                            new HashMap<String, Object>() {{
+                                put("type", "text");
+                                put("text", buildPrompt(""));
+                            }},
+                            new HashMap<String, Object>() {{
+                                put("type", "image_url");  // Correct content type for image
+                                // Directly using an image URL for testing purposes
+                                put("image_url", new HashMap<String, Object>() {{
+                                    put("url", imgUrl);
+//                                    put("url", "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg");
+                                }});
+                            }}
+                    ));
+                }}
+        ));
+
+        // Send the request
+        String jsonBody = objectMapper.writeValueAsString(requestBody);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
-        
-        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
-        connectionManager.setMaxTotal(100);
-        connectionManager.setDefaultMaxPerRoute(10);
-        
-        CloseableHttpClient httpClient = HttpClients.custom()
-            .setConnectionManager(connectionManager)
-            .build();
-        
-        HttpComponentsClientHttpRequestFactory factory = 
-            new HttpComponentsClientHttpRequestFactory();
-        factory.setHttpClient(httpClient);
-        factory.setConnectTimeout(Duration.ofSeconds(5));
-        factory.setConnectionRequestTimeout(Duration.ofSeconds(15));
-        
-        RestTemplate restTemplate = new RestTemplate(factory);
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", model);
-        requestBody.put("messages", List.of(
-                Map.of("role", "system", "content", "You are a helpful assistant that analyzes financial transactions."),
-                Map.of("role", "user", "content", prompt)
-        ));
-        requestBody.put("temperature", 0.3);
-        requestBody.put("max_tokens", 1000);
-
-        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+        headers.set("Authorization", "Bearer " + apiKey);
+        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    apiUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    String.class
-            );
+            ResponseEntity<String> response = restTemplate.exchange(apiUrl, HttpMethod.POST, entity, String.class);
 
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("OpenAI API returned error status: " + response.getStatusCode());
+            // Parse the response
+            JsonNode aiResponse = objectMapper.readTree(response.getBody());
+
+            // Ensure the response contains 'choices' and get the 'content' from the first choice
+            if (aiResponse.has("choices") && aiResponse.get("choices").isArray()) {
+                JsonNode firstChoice = aiResponse.get("choices").get(0);
+                JsonNode message = firstChoice.get("message");
+
+                if (message != null && message.has("content")) {
+                    String content = message.get("content").asText().trim();
+
+                    // Check if the content starts with ```json\n and ends with ```
+                    if (content.startsWith("```json\n") && content.endsWith("```")) {
+                        // Remove the ```json\n at the beginning and the ``` at the end
+                        content = content.substring(8, content.length() - 3).trim();
+                    }
+
+                    // Return the content as a JSONObject
+                    return new JSONObject(content);
+                } else {
+                    throw new RuntimeException("No 'content' field found in response.");
+                }
+            } else {
+                throw new RuntimeException("Invalid API response: 'choices' not found.");
             }
 
-            String responseBody = response.getBody();
-            if (responseBody == null) {
-                throw new RuntimeException("Empty response from OpenAI");
-            }
-
-            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
-            
-            if (choices == null || choices.isEmpty()) {
-                throw new RuntimeException("No choices in OpenAI response");
-            }
-
-            Map<String, Object> choice = choices.get(0);
-            String content = null;
-            if (choice.get("message") instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> message = (Map<String, Object>) choice.get("message");
-                content = message != null ? (String) message.get("content") : null;
-            }
-
-            if (content == null || content.trim().isEmpty()) {
-                throw new RuntimeException("Empty content in OpenAI response");
-            }
-
-            return content;
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("OpenAI API error: {}", e.getResponseBodyAsString(), e);
-            throw e;
-        }
-    }
-
-    private Transaction parseAIResponse(String aiResponse) throws Exception {
-        if (aiResponse == null || aiResponse.isEmpty()) {
-            throw new RuntimeException("AI response is empty");
-        }
-
-        // Check if `aiResponse` is wrapped in quotes (indicating a JSON string, not an object)
-        if (aiResponse.startsWith("\"") && aiResponse.endsWith("\"")) {
-            aiResponse = aiResponse.substring(1, aiResponse.length() - 1); // Remove surrounding quotes
-            aiResponse = aiResponse.replace("\\\"", "\""); // Unescape any quotes within the JSON
-        }
-
-        try {
-            // Attempt to parse the JSON
-            Map<String, Object> responseMap = objectMapper.readValue(aiResponse, Map.class);
-
-            Transaction transaction = new Transaction();
-            transaction.setTransactionType((String) responseMap.get("transaction_type"));
-
-            // Process date and time
-            String dateString = (String) responseMap.get("date");
-            String timeString = (String) responseMap.get("time");
-            if (dateString != null && timeString != null) {
-                String dateTimeString = dateString + " " + timeString + ":00";
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                LocalDateTime dateTime = LocalDateTime.parse(dateTimeString, formatter);
-                transaction.setCreatedAt(dateTime);
-                transaction.setUpdatedAt(dateTime);
-                transaction.setTransactionAt(dateTime);
-            }
-
-            // Handle amount
-            Object amountObj = responseMap.get("amount");
-            BigDecimal amount = amountObj instanceof Number ?
-                    new BigDecimal(amountObj.toString()) : BigDecimal.ZERO;
-            transaction.setTotalAmount(amount);
-
-            transaction.setCurrency((String) responseMap.get("currency"));
-            transaction.setCategory((String) responseMap.get("category"));
-            transaction.setDescription((String) responseMap.get("description"));
-            transaction.setLocation((String) responseMap.get("location"));
-            transaction.setPaymentMethod((String) responseMap.get("payment_method"));
-
-            return transaction;
-        } catch (JsonProcessingException e) {
-            // Log and throw a custom error if JSON parsing fails
-            throw new IllegalArgumentException("Failed to parse AI response as JSON: " + aiResponse, e);
+            log.error("Error from OpenAI API: " + e.getMessage());
+            throw new Exception("Error from OpenAI API: " + e.getMessage());
         }
     }
 
 
+    private String uploadImageToStorage(MultipartFile file) throws IOException {
+        // This should include the logic to upload the image to your own server or cloud storage
+        // Return the URL of the uploaded image
+//        String imageUrl = "https://yourserver.com/uploaded_images/" + file.getOriginalFilename();
+        //TODO file server
+        String imageUrl = "https://i.postimg.cc/ryJ332Lw/IMG-0626.jpg";
+
+        // Assume the upload was successful and return the URL
+        // The actual upload logic should be implemented based on your specific needs, e.g., using AWS S3, Azure Blob Storage, or other methods
+
+        return imageUrl;
+    }
+
+    // Convert the file to base64 string (you may need to implement the actual conversion)
+    public String convertFileToBase64(MultipartFile file) throws IOException {
+        // 1. Get the byte data of the file
+        byte[] fileBytes = file.getBytes();
+
+        // 2. Convert the byte array to a base64 string
+        return Base64.getEncoder().encodeToString(fileBytes);
+    }
+
+
+    public String storeImage(MultipartFile image) throws IOException {
+        String imgUrl = uploadImageToStorage(image);
+        // Define the directory to store images (ensure you have the directory created)
+        // TODO file server
+//        String directory = "path/to/store/images/";
+//        String fileName = UUID.randomUUID().toString() + "_" + image.getOriginalFilename();
+//        String filePath = directory + fileName;
+
+        // Save the image to the server
+        File file = new File(imgUrl);
+        image.transferTo(file);
+
+        return imgUrl;  // Return the path to store in the transaction
+
+//        http://your-server/images/filename.jpg
+    }
+
+    // Parse and save the transaction based on AI response
     public Transaction parseAndSaveTransaction(JSONObject openAIResponse) {
         Transaction transaction = new Transaction();
 

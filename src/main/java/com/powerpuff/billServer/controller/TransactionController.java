@@ -3,6 +3,7 @@ package com.powerpuff.billServer.controller;
 import com.powerpuff.billServer.model.Transaction;
 import com.powerpuff.billServer.service.TransactionService;
 import com.powerpuff.billServer.service.OpenAIService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import org.json.JSONObject;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -54,6 +56,41 @@ public class TransactionController {
             return ResponseEntity.ok(openAIResponse.toString(4));  // 4 spaces for indentation
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing transaction: " + e.getMessage());
+        }
+    }
+
+
+    // Upload an image
+    @PostMapping(value = "/addWithAIImg", consumes = "multipart/form-data")
+    @Operation(summary = "Upload a bill image", description = "Upload a bill image to the server.")
+    public ResponseEntity<String> addWithAIImg(
+            @Parameter(description = "The image file to upload", required = true)
+            @RequestParam("image") MultipartFile image) {
+        try {
+            // Call the AI service to process the image
+            JSONObject aiResponse = openAIService.processImage(image);
+
+            // TODO Check if the AI response indicates it's a valid transaction
+//            if (!aiResponse.has("transaction") || aiResponse.getString("transaction").isEmpty()) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("The uploaded image is not a valid transaction.");
+//            }
+
+            // Parse the AI response and create a transaction
+            Transaction transaction = openAIService.parseAndSaveTransaction(aiResponse);
+
+            // Store the receipt image path in the transaction
+            //TODO setReceiptImage
+//            String imagePath = openAIService.convertFileToBase64(image);
+//            transaction.setReceiptImage(imagePath);
+
+            // Save the transaction to the database
+            transactionService.saveTransaction(transaction);
+
+            // Return the formatted JSON response with indentation
+            return ResponseEntity.ok(aiResponse.toString(4));  // 4 spaces for indentation
+//            return ResponseEntity.ok("Bill processed and transaction saved successfully.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing the bill: " + e.getMessage());
         }
     }
 
