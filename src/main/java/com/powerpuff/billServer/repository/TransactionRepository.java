@@ -9,6 +9,10 @@ import java.util.List;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction,Integer> {
-    // 查找 using_type 不等于 3 的交易
-    List<Transaction> findByUsingTypeNot(UsingType usingType);
+    // find transactions where usingType is not equal to DELETED (value 3)
+//    List<Transaction> findByUsingTypeNot(UsingType usingType);
+
+    // list transactions by creat time
+    List<Transaction> findByUsingTypeNotOrderByCreatedAtDesc(UsingType usingType);
+    List<Transaction> findByUsingTypeNotOrderByCreatedAtAsc(UsingType usingType);
 }

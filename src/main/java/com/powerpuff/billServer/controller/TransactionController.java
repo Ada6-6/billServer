@@ -58,8 +58,9 @@ public class TransactionController {
     }
 
     @GetMapping("/getAll")
-    public List<Transaction> getAllTransaction(){
-        return transactionService.getAllTransaction();
+    public List<Transaction> getAllTransaction(
+            @RequestParam(value = "sortOrder", required = false) String sortOrder){
+        return transactionService.getAllTransaction(sortOrder);
     }
 
     @GetMapping("/delete/{id}")
