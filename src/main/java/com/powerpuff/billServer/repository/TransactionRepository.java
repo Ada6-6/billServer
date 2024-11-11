@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction,Integer> {
 
-    // list transactions by creat time
+    // sorting by create time //desc or asc
     List<Transaction> findByUsingTypeNotOrderByCreatedAtDesc(UsingType usingType);
     List<Transaction> findByUsingTypeNotOrderByCreatedAtAsc(UsingType usingType);
 
@@ -19,4 +19,14 @@ public interface TransactionRepository extends JpaRepository<Transaction,Integer
     List<Transaction> findByUsingTypeNotAndCategoryOrderByCreatedAtDesc(UsingType usingType, String category);
 
     List<Transaction> findByUsingTypeNotAndCategoryOrderByCreatedAtAsc(UsingType usingType, String category);
+
+
+    //filtering transactions by transactionType (income or outcome), usingType is not equal to DELETED (value 3),
+    List<Transaction> findByUsingTypeNotAndTransactionTypeOrderByCreatedAtDesc(UsingType usingType, String transactionType);
+    List<Transaction> findByUsingTypeNotAndTransactionTypeOrderByCreatedAtAsc(UsingType usingType, String transactionType);
+
+
+    List<Transaction> findByUsingTypeNotAndCategoryAndTransactionTypeOrderByCreatedAtDesc(UsingType usingType, String category, String transactionType);
+    List<Transaction> findByUsingTypeNotAndCategoryAndTransactionTypeOrderByCreatedAtAsc(UsingType usingType, String category, String transactionType);
+
 }

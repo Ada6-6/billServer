@@ -20,19 +20,39 @@ public class TransactionServiceImpl implements TransactionService{
     }
 
     @Override
-    public List<Transaction> getAllTransaction(String sortOrder, String category) {
+    public List<Transaction> getAllTransaction(String sortOrder, String category, String transactionType) {
+        // Check if transactionType is provided; if not, return all types
         if (category == null || category.isEmpty()) {
-            if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
-                return transactionRepository.findByUsingTypeNotOrderByCreatedAtDesc(UsingType.DELETED);
+            if (transactionType == null || transactionType.isEmpty()) {
+                // No transactionType filter
+                if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
+                    return transactionRepository.findByUsingTypeNotOrderByCreatedAtDesc(UsingType.DELETED);
+                } else {
+                    return transactionRepository.findByUsingTypeNotOrderByCreatedAtAsc(UsingType.DELETED);
+                }
             } else {
-                return transactionRepository.findByUsingTypeNotOrderByCreatedAtAsc(UsingType.DELETED);
+                // Filter by transactionType
+                if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
+                    return transactionRepository.findByUsingTypeNotAndTransactionTypeOrderByCreatedAtDesc(UsingType.DELETED, transactionType);
+                } else {
+                    return transactionRepository.findByUsingTypeNotAndTransactionTypeOrderByCreatedAtAsc(UsingType.DELETED, transactionType);
+                }
             }
         } else {
-            // Category-specific filtering
-            if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
-                return transactionRepository.findByUsingTypeNotAndCategoryOrderByCreatedAtDesc(UsingType.DELETED, category);
+            // Category-specific filtering with transactionType
+            if (transactionType == null || transactionType.isEmpty()) {
+                if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
+                    return transactionRepository.findByUsingTypeNotAndCategoryOrderByCreatedAtDesc(UsingType.DELETED, category);
+                } else {
+                    return transactionRepository.findByUsingTypeNotAndCategoryOrderByCreatedAtAsc(UsingType.DELETED, category);
+                }
             } else {
-                return transactionRepository.findByUsingTypeNotAndCategoryOrderByCreatedAtAsc(UsingType.DELETED, category);
+                // Category and transactionType-specific filtering
+                if (sortOrder == null || sortOrder.isEmpty() || sortOrder.equalsIgnoreCase("desc")) {
+                    return transactionRepository.findByUsingTypeNotAndCategoryAndTransactionTypeOrderByCreatedAtDesc(UsingType.DELETED, category, transactionType);
+                } else {
+                    return transactionRepository.findByUsingTypeNotAndCategoryAndTransactionTypeOrderByCreatedAtAsc(UsingType.DELETED, category, transactionType);
+                }
             }
         }
     }

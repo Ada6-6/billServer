@@ -63,12 +63,17 @@ public class TransactionController {
 //        return transactionService.getAllTransaction(sortOrder);
 //    }
 
+
+
+//    /transactions?sortOrder=asc&category=Groceries&transactionType=outcome
     public ResponseEntity<List<Transaction>> getAllTransactions(
-            @Parameter(description = "Sort order (asc or desc)")
+            @Parameter(description = "Sort order (asc or desc). If not provided, defaulting to descending order.")
             @RequestParam(required = false) String sortOrder,
-            @Parameter(description = "Transaction category filter")
-            @RequestParam(required = false) String category) {
-        List<Transaction> transactions = transactionService.getAllTransaction(sortOrder, category);
+            @Parameter(description = "Transaction category filter (SHOPPING, HOUSING...). If not provided, all categories are listed.")
+            @RequestParam(required = false) String category,
+            @Parameter(description = "Transaction type filter (income or outcome). If not provided, both types are listed.", example = " ")
+            @RequestParam(required = false) String transactionType) {
+        List<Transaction> transactions = transactionService.getAllTransaction(sortOrder, category, transactionType);
         return new ResponseEntity<>(transactions, HttpStatus.OK);
     }
 

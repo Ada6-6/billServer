@@ -7,7 +7,7 @@ import java.util.List;
 public interface TransactionService {
     public Transaction saveTransaction(Transaction transaction);
 
-    public List<Transaction> getAllTransaction(String sortOrder, String category);
+    public List<Transaction> getAllTransaction(String sortOrder, String category, String transactionType);
 
     String deleteTransaction(Integer id);
 }
