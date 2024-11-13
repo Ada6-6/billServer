@@ -177,7 +177,7 @@ public class OpenAIService {
 
         // Call OpenAI API or another image recognition service
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", "gpt-4o");  // Use gpt-4o model (ensure you are using the correct model that supports image_url)
+        requestBody.put("model", model);
         requestBody.put("messages", Arrays.asList(
                 new HashMap<String, Object>() {{
                     put("role", "user");
