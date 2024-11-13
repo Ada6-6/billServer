@@ -1,7 +1,7 @@
 # billServer
 
 
-Frame-相关组件：
+Framework-related Components:
 -
 * maven
 * spring-boot
@@ -9,7 +9,7 @@ Frame-相关组件：
 * mysql
 * spring-data-jpa
 
-build - 打包
+Build - Packaging
 -
 To package the project, use the following command. The packaged file will be located in the target directory under the name```billServer-0.0.1-SNAPSHOT.jar```
 ```
